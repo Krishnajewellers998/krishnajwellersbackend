@@ -32,5 +32,6 @@ module.exports = {
     DATABASE_URL: process.env.DATABASE_URL || "",
     DATA_FILE: path.resolve(__dirname, "../../data.json"),
     IMAGES_DIR: path.resolve(__dirname, "../../images"),
+    WEB_DIST_DIR: path.resolve(__dirname, "../../../website/dist"),
     PANKAJ_LIVE_URL: "https://bcast.pankajchain.com:7768/VOTSBroadcastStreaming/Services/xml/GetLiveRateByTemplateID/pankajchain"
 };
