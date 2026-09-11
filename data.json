@@ -1,10 +1,10 @@
 {
   "goldRates": {
-    "24K": 158000,
-    "22K": 145305,
-    "18K": 118886
+    "24K": 149484,
+    "22K": 137027,
+    "18K": 112113
   },
-  "updatedAt": "2026-09-11T05:38:35.395Z",
+  "updatedAt": "2026-09-11T09:36:04.673Z",
   "categories": [
     {
       "name": "Ring",
@@ -48,6 +48,36 @@
     }
   ],
   "jewellery": [
+    {
+      "id": 1787566453873,
+      "name": "Ring",
+      "image": "images/WhatsApp_Image_2026-09-11_at_9_26_46_AM_1789116989425_50695.jpeg",
+      "price": 0,
+      "photos": [
+        "images/WhatsApp_Image_2026-09-11_at_9_26_46_AM_1789116989425_50695.jpeg"
+      ],
+      "purity": "22K (916 BIS)",
+      "weight": "6",
+      "category": "Ring",
+      "synonyms": [],
+      "createdAt": "2026-09-11T08:56:32.440Z",
+      "description": "This is Ring"
+    },
+    {
+      "id": 1787566453872,
+      "name": "test ring",
+      "image": "images/90b722e4-f064-4bc6-bf57-d048be9935a3_1789116767920_43878.jpeg",
+      "price": 0,
+      "photos": [
+        "images/90b722e4-f064-4bc6-bf57-d048be9935a3_1789116767920_43878.jpeg"
+      ],
+      "purity": "18K (750 Gold)",
+      "weight": "5.9",
+      "category": "Ring",
+      "synonyms": [],
+      "createdAt": "2026-09-11T08:52:53.186Z",
+      "description": "testing"
+    },
     {
       "id": 1786908197709,
       "name": "haar",
