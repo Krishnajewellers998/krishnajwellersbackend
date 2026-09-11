@@ -1,10 +1,10 @@
 {
   "goldRates": {
-    "24K": 149484,
-    "22K": 137027,
-    "18K": 112113
+    "24K": 149617,
+    "22K": 137149,
+    "18K": 112213
   },
-  "updatedAt": "2026-09-11T09:36:04.673Z",
+  "updatedAt": "2026-09-11T10:28:52.552Z",
   "categories": [
     {
       "name": "Ring",
@@ -48,21 +48,6 @@
     }
   ],
   "jewellery": [
-    {
-      "id": 1787566453873,
-      "name": "Ring",
-      "image": "images/WhatsApp_Image_2026-09-11_at_9_26_46_AM_1789116989425_50695.jpeg",
-      "price": 0,
-      "photos": [
-        "images/WhatsApp_Image_2026-09-11_at_9_26_46_AM_1789116989425_50695.jpeg"
-      ],
-      "purity": "22K (916 BIS)",
-      "weight": "6",
-      "category": "Ring",
-      "synonyms": [],
-      "createdAt": "2026-09-11T08:56:32.440Z",
-      "description": "This is Ring"
-    },
     {
       "id": 1787566453872,
       "name": "test ring",
