@@ -32,39 +32,32 @@ async function initDatabase() {
             const res = await pool.query(`SELECT data FROM krishna_jewellers_data WHERE id = 1`);
             if (res.rows.length > 0) {
                 runtimeData = { ...defaultData, ...res.rows[0].data };
-                console.log("[DataStore] Loaded data from PostgreSQL.");
+                console.log("[DataStore] Connected directly to PostgreSQL database. Loaded live data.");
+                return;
+            } else {
+                runtimeData = { ...defaultData };
+                await pool.query(
+                    `INSERT INTO krishna_jewellers_data (id, data) VALUES ($1, $2::jsonb)`,
+                    [1, JSON.stringify(runtimeData)]
+                );
+                console.log("[DataStore] Initialized PostgreSQL record id=1.");
                 return;
             }
         } catch (err) {
-            console.warn("[DataStore] PostgreSQL init failed, falling back to local file:", err.message);
+            console.error("[DataStore] PostgreSQL database connection failed:", err.message);
         }
     }
 
-    // Load from local data.json
+    // Fallback in case PostgreSQL is not provided
     try {
         if (fs.existsSync(config.DATA_FILE)) {
             const raw = fs.readFileSync(config.DATA_FILE, "utf8");
             runtimeData = { ...defaultData, ...JSON.parse(raw) };
-            console.log("[DataStore] Loaded data from data.json.");
         } else {
             runtimeData = { ...defaultData };
-            fs.writeFileSync(config.DATA_FILE, JSON.stringify(runtimeData, null, 2), "utf8");
-            console.log("[DataStore] Initialized new data.json.");
         }
-    } catch (err) {
-        console.error("[DataStore] Error reading data.json:", err.message);
+    } catch (_) {
         runtimeData = { ...defaultData };
-    }
-
-    // Seed into DB if pool exists
-    if (pool) {
-        try {
-            await pool.query(
-                `INSERT INTO krishna_jewellers_data (id, data) VALUES ($1, $2::jsonb)
-                 ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data`,
-                [1, JSON.stringify(runtimeData)]
-            );
-        } catch (_) {}
     }
 }
 
@@ -82,10 +75,7 @@ function updateData(mutator) {
 
     saveQueue = saveQueue.then(async () => {
         try {
-            // Write to local file backup
-            fs.writeFileSync(config.DATA_FILE, JSON.stringify(runtimeData, null, 2), "utf8");
-
-            // Write to Postgres if connected
+            // Write directly to PostgreSQL database
             if (pool) {
                 await pool.query(
                     `INSERT INTO krishna_jewellers_data (id, data) VALUES ($1, $2::jsonb)
@@ -94,7 +84,7 @@ function updateData(mutator) {
                 );
             }
         } catch (err) {
-            console.error("[DataStore] Persist error:", err.message);
+            console.error("[DataStore] PostgreSQL database save error:", err.message);
         }
     });
 

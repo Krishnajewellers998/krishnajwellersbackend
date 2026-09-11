@@ -100,19 +100,41 @@ class CategoriesService {
     deleteCategory(name) {
         const trimmed = String(name || "").trim();
         const data = dataStore.getData();
+        const catToDelete = (data.categories || []).find(c => {
+            const catName = typeof c === "string" ? c : c.name;
+            return String(catName || "").toLowerCase() === trimmed.toLowerCase();
+        });
+
+        if (!catToDelete) {
+            throw { status: 404, message: `Category "${trimmed}" not found.` };
+        }
+
         const filtered = (data.categories || []).filter(c => {
             const catName = typeof c === "string" ? c : c.name;
             return String(catName || "").toLowerCase() !== trimmed.toLowerCase();
         });
 
-        if (filtered.length === (data.categories || []).length) {
-            throw { status: 404, message: `Category "${trimmed}" not found.` };
-        }
-
         dataStore.updateData(current => ({
             ...current,
             categories: filtered
         }));
+
+        // Clean up orphaned image file from disk
+        try {
+            const fs = require("fs");
+            const path = require("path");
+            const config = require("../../config/env");
+
+            const imgPath = typeof catToDelete === "object" ? catToDelete.image : null;
+            if (imgPath && imgPath.startsWith("images/")) {
+                const fullPath = path.resolve(config.IMAGES_DIR, path.basename(imgPath));
+                if (fs.existsSync(fullPath)) {
+                    fs.unlinkSync(fullPath);
+                }
+            }
+        } catch (cleanupErr) {
+            console.error("[CategoriesService] Could not remove deleted category image file:", cleanupErr.message);
+        }
 
         return {
             success: true,

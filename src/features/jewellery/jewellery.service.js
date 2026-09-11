@@ -123,16 +123,40 @@ class JewelleryService {
 
     delete(id) {
         const data = dataStore.getData();
-        const filtered = (data.jewellery || []).filter(i => String(i.id) !== String(id));
+        const itemToDelete = (data.jewellery || []).find(i => String(i.id) === String(id));
 
-        if (filtered.length === (data.jewellery || []).length) {
+        if (!itemToDelete) {
             throw { status: 404, message: `Jewellery item with ID "${id}" not found.` };
         }
+
+        const filtered = (data.jewellery || []).filter(i => String(i.id) !== String(id));
 
         dataStore.updateData(current => ({
             ...current,
             jewellery: filtered
         }));
+
+        // Clean up orphaned image file from disk to save disk space and bandwidth
+        try {
+            const fs = require("fs");
+            const path = require("path");
+            const config = require("../../config/env");
+
+            const imagesToDelete = [];
+            if (itemToDelete.image) imagesToDelete.push(itemToDelete.image);
+            if (Array.isArray(itemToDelete.photos)) imagesToDelete.push(...itemToDelete.photos);
+
+            for (const imgPath of imagesToDelete) {
+                if (imgPath && imgPath.startsWith("images/")) {
+                    const fullPath = path.resolve(config.IMAGES_DIR, path.basename(imgPath));
+                    if (fs.existsSync(fullPath)) {
+                        fs.unlinkSync(fullPath);
+                    }
+                }
+            }
+        } catch (cleanupErr) {
+            console.error("[JewelleryService] Could not remove deleted image file:", cleanupErr.message);
+        }
 
         return {
             success: true,
