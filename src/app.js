@@ -19,8 +19,8 @@ app.use(cors({
 }));
 
 // Body Parsers
-app.use(express.json({ limit: "15mb" }));
-app.use(express.urlencoded({ extended: true, limit: "15mb" }));
+app.use(express.json({ limit: "100mb" }));
+app.use(express.urlencoded({ extended: true, limit: "100mb" }));
 
 // Static Media Hosting Removed: Images are now stored as Base64 in PostgreSQL
 
