@@ -33,18 +33,16 @@ app.use("/api/*", notFoundHandler);
 // Central Error Handler
 app.use(errorHandler);
 
-// If website dist build exists, serve it and route all SPA page requests (e.g. /admin, /privacy-policy)
+// Serve website dist build and route all SPA page requests (e.g. /admin, /privacy-policy)
 const fs = require("fs");
-if (fs.existsSync(config.WEB_DIST_DIR)) {
-    app.use(express.static(config.WEB_DIST_DIR));
-    app.get("*", (req, res) => {
-        const indexPath = path.join(config.WEB_DIST_DIR, "index.html");
-        if (fs.existsSync(indexPath)) {
-            res.sendFile(indexPath);
-        } else {
-            res.status(404).send("Frontend build index.html not found");
-        }
-    });
-}
+app.use(express.static(config.WEB_DIST_DIR));
+app.get("*", (req, res) => {
+    const indexPath = path.join(config.WEB_DIST_DIR, "index.html");
+    if (fs.existsSync(indexPath)) {
+        res.sendFile(indexPath);
+    } else {
+        res.status(404).send("Frontend build index.html not found");
+    }
+});
 
 module.exports = app;
