@@ -1,24 +1,6 @@
 const multer = require("multer");
 const path = require("path");
-const fs = require("fs");
-const config = require("../config/env");
-
-// Ensure images directory exists
-if (!fs.existsSync(config.IMAGES_DIR)) {
-    fs.mkdirSync(config.IMAGES_DIR, { recursive: true });
-}
-
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, config.IMAGES_DIR);
-    },
-    filename: (req, file, cb) => {
-        const ext = path.extname(file.originalname).toLowerCase();
-        const cleanName = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9_-]/g, "_");
-        const uniqueSuffix = Date.now() + "_" + Math.round(Math.random() * 1e5);
-        cb(null, `${cleanName}_${uniqueSuffix}${ext}`);
-    }
-});
+const storage = multer.memoryStorage();
 
 const fileFilter = (req, file, cb) => {
     const allowed = /jpeg|jpg|png|webp/;

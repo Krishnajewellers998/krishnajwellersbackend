@@ -14,12 +14,21 @@ class JewelleryService {
         // Search query filter
         if (search) {
             const q = search.toLowerCase().trim();
+            const matchingCategories = (data.categories || []).filter(c => {
+                const cName = String(c.name || "").toLowerCase();
+                const cSyn = Array.isArray(c.synonyms) ? c.synonyms.join(" ").toLowerCase() : "";
+                return cName.includes(q) || cSyn.includes(q);
+            }).map(c => String(c.name || "").toLowerCase().trim());
+
             items = items.filter(item => {
                 const name = String(item.name || "").toLowerCase();
                 const desc = String(item.description || "").toLowerCase();
                 const cat = String(item.category || "").toLowerCase();
                 const syn = Array.isArray(item.synonyms) ? item.synonyms.join(" ").toLowerCase() : "";
-                return name.includes(q) || desc.includes(q) || cat.includes(q) || syn.includes(q);
+                
+                const matchesItem = name.includes(q) || desc.includes(q) || cat.includes(q) || syn.includes(q);
+                const matchesCategory = matchingCategories.includes(cat.trim());
+                return matchesItem || matchesCategory;
             });
         }
 

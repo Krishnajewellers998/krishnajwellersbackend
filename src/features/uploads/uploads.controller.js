@@ -8,12 +8,15 @@ class UploadsController {
                 });
             }
 
-            const imagePath = `images/${req.file.filename}`;
+            const b64 = req.file.buffer.toString('base64');
+            const mimeType = req.file.mimetype;
+            const dataUri = `data:${mimeType};base64,${b64}`;
+
             res.status(201).json({
                 success: true,
                 message: "Image uploaded successfully.",
-                image: imagePath,
-                url: `/${imagePath}`
+                image: dataUri,
+                url: dataUri
             });
         } catch (err) {
             next(err);

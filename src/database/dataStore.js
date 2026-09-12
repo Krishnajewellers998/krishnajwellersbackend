@@ -1,4 +1,3 @@
-const fs = require("fs");
 const { Pool } = require("pg");
 const config = require("../config/env");
 
@@ -48,17 +47,8 @@ async function initDatabase() {
         }
     }
 
-    // Fallback in case PostgreSQL is not provided
-    try {
-        if (fs.existsSync(config.DATA_FILE)) {
-            const raw = fs.readFileSync(config.DATA_FILE, "utf8");
-            runtimeData = { ...defaultData, ...JSON.parse(raw) };
-        } else {
-            runtimeData = { ...defaultData };
-        }
-    } catch (_) {
-        runtimeData = { ...defaultData };
-    }
+    // Fallback in case PostgreSQL is not provided or connection fails
+    runtimeData = { ...defaultData };
 }
 
 function getData() {

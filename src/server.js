@@ -11,7 +11,7 @@ async function startServer() {
         app.listen(config.PORT, () => {
             console.log(`  Backend API Server listening on: http://localhost:${config.PORT}`);
             console.log(`  Health Check: http://localhost:${config.PORT}/api/health`);
-            console.log(`  Images Static Path: http://localhost:${config.PORT}/images/`);
+            // Static media path log removed
             console.log("==================================================");
         });
     } catch (err) {
