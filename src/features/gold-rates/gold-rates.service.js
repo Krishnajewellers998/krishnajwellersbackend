@@ -1,4 +1,4 @@
-const dataStore = require("../../database/dataStore");
+const { getPool } = require("../../database/dataStore");
 
 const PANKAJ_LIVE_URL =
     "https://bcast.pankajchain.com:7768/VOTSBroadcastStreaming/Services/xml/GetLiveRateByTemplateID/pankajchain";
@@ -50,22 +50,26 @@ class GoldRatesService {
      * Falls back to last saved DB value if feed is unavailable.
      */
     async getGoldRates() {
+        const pool = getPool();
         try {
             const rate = await getLiveGoldRate();
 
             const rate24 = Math.round(rate.sell);
             const rate22 = Math.round(rate24 * 22 / 24);
             const rate18 = Math.round(rate24 * 18 / 24);
+            
+            const goldRates = { "24K": rate24, "22K": rate22, "18K": rate18 };
 
             // Persist the latest live rate to DB as fallback cache
-            dataStore.updateData(data => ({
-                ...data,
-                goldRates: { "24K": rate24, "22K": rate22, "18K": rate18 }
-            }));
+            await pool.query(
+                `INSERT INTO gold_rates (id, data) VALUES (1, $1::jsonb)
+                 ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data`,
+                [JSON.stringify(goldRates)]
+            );
 
             return {
                 success: true,
-                goldRates: { "24K": rate24, "22K": rate22, "18K": rate18 },
+                goldRates,
                 buy: rate.buy,
                 sell: rate.sell,
                 high: rate.high,
@@ -76,14 +80,17 @@ class GoldRatesService {
             };
         } catch (err) {
             console.warn("[GoldRates] Live feed unavailable, using fallback:", err.message);
-            const data = dataStore.getData();
+            
+            const res = await pool.query(`SELECT data FROM gold_rates WHERE id = 1`);
+            const fallbackRates = res.rows.length > 0 ? res.rows[0].data : { "24K": 0, "22K": 0, "18K": 0 };
+
             return {
                 success: true,
                 fallback: true,
-                goldRates: data.goldRates || { "24K": 0, "22K": 0, "18K": 0 },
+                goldRates: fallbackRates,
                 unit: "per 10 gram",
                 source: "Saved rate (live feed unavailable)",
-                updatedAt: data.updatedAt || new Date().toISOString()
+                updatedAt: new Date().toISOString()
             };
         }
     }

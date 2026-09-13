@@ -1,5 +1,8 @@
+const { getPool } = require("../../database/dataStore");
+const crypto = require("crypto");
+
 class UploadsController {
-    uploadSingle(req, res, next) {
+    async uploadSingle(req, res, next) {
         try {
             if (!req.file) {
                 return res.status(400).json({
@@ -8,15 +11,24 @@ class UploadsController {
                 });
             }
 
+            const pool = getPool();
             const b64 = req.file.buffer.toString('base64');
             const mimeType = req.file.mimetype;
-            const dataUri = `data:${mimeType};base64,${b64}`;
+            
+            const uuid = crypto.randomUUID();
+
+            await pool.query(
+                `INSERT INTO images (id, mime_type, base64_data) VALUES ($1, $2, $3)`,
+                [uuid, mimeType, b64]
+            );
+
+            const imageUrl = `/api/images/${uuid}`;
 
             res.status(201).json({
                 success: true,
                 message: "Image uploaded successfully.",
-                image: dataUri,
-                url: dataUri
+                image: imageUrl,
+                url: imageUrl
             });
         } catch (err) {
             next(err);

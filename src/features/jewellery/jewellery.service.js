@@ -1,89 +1,118 @@
-const dataStore = require("../../database/dataStore");
+const { getPool } = require("../../database/dataStore");
 
 class JewelleryService {
-    getJewellery({ category = "", search = "", page = 1, limit = 100 } = {}) {
-        const data = dataStore.getData();
-        let items = Array.isArray(data.jewellery) ? [...data.jewellery] : [];
-
-        // Category filter
-        if (category && category !== "All") {
-            const catLower = category.toLowerCase().trim();
-            items = items.filter(item => String(item.category || "").toLowerCase().trim() === catLower);
-        }
-
-        // Search query filter
-        if (search) {
-            const q = search.toLowerCase().trim();
-            const matchingCategories = (data.categories || []).filter(c => {
-                const cName = String(c.name || "").toLowerCase();
-                const cSyn = Array.isArray(c.synonyms) ? c.synonyms.join(" ").toLowerCase() : "";
-                return cName.includes(q) || cSyn.includes(q);
-            }).map(c => String(c.name || "").toLowerCase().trim());
-
-            items = items.filter(item => {
-                const name = String(item.name || "").toLowerCase();
-                const desc = String(item.description || "").toLowerCase();
-                const cat = String(item.category || "").toLowerCase();
-                const syn = Array.isArray(item.synonyms) ? item.synonyms.join(" ").toLowerCase() : "";
-                
-                const matchesItem = name.includes(q) || desc.includes(q) || cat.includes(q) || syn.includes(q);
-                const matchesCategory = matchingCategories.includes(cat.trim());
-                return matchesItem || matchesCategory;
-            });
-        }
-
-        const total = items.length;
+    async getJewellery({ category = "", search = "", page = 1, limit = 100 } = {}) {
+        const pool = getPool();
         const pageNum = Math.max(1, Number(page) || 1);
         const limitNum = Math.max(1, Number(limit) || 100);
-        const startIndex = (pageNum - 1) * limitNum;
-        const paginated = items.slice(startIndex, startIndex + limitNum);
+        const offset = (pageNum - 1) * limitNum;
+
+        let queryArgs = [];
+        let conditions = [];
+        let paramIndex = 1;
+
+        if (category && category !== "All") {
+            conditions.push(`LOWER(j.category) = LOWER($${paramIndex})`);
+            queryArgs.push(category.trim());
+            paramIndex++;
+        }
+
+        if (search) {
+            const q = `%${search.trim()}%`;
+            // Search in jewellery fields OR matching categories
+            conditions.push(`(
+                j.name ILIKE $${paramIndex} OR 
+                j.description ILIKE $${paramIndex} OR 
+                j.category ILIKE $${paramIndex} OR 
+                j.synonyms::text ILIKE $${paramIndex} OR
+                EXISTS (
+                    SELECT 1 FROM categories c 
+                    WHERE c.name = j.category 
+                    AND (c.name ILIKE $${paramIndex} OR c.synonyms::text ILIKE $${paramIndex})
+                )
+            )`);
+            queryArgs.push(q);
+            paramIndex++;
+        }
+
+        const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
+        const countQuery = `SELECT COUNT(*) FROM jewellery j ${whereClause}`;
+        const countRes = await pool.query(countQuery, queryArgs);
+        const total = parseInt(countRes.rows[0].count, 10);
+
+        const dataQuery = `
+            SELECT id, name, category, description, image, photos, weight, purity, price, synonyms, created_at as "createdAt"
+            FROM jewellery j
+            ${whereClause}
+            ORDER BY id DESC
+            LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+        `;
+        
+        const dataArgs = [...queryArgs, limitNum, offset];
+        const res = await pool.query(dataQuery, dataArgs);
 
         return {
             success: true,
             total,
             page: pageNum,
             totalPages: Math.ceil(total / limitNum) || 1,
-            jewellery: paginated
+            jewellery: res.rows
         };
     }
 
-    getById(id) {
-        const data = dataStore.getData();
-        const item = (data.jewellery || []).find(i => String(i.id) === String(id));
-        if (!item) {
+    async getById(id) {
+        const pool = getPool();
+        const res = await pool.query(
+            `SELECT id, name, category, description, image, photos, weight, purity, price, synonyms, created_at as "createdAt" FROM jewellery WHERE id = $1`, 
+            [id]
+        );
+
+        if (res.rows.length === 0) {
             throw { status: 404, message: `Jewellery item with ID "${id}" not found.` };
         }
-        return { success: true, jewellery: item };
+        return { success: true, jewellery: res.rows[0] };
     }
 
-    create(itemData) {
+    async create(itemData) {
         const name = String(itemData.name || "").trim();
         if (!name) {
             throw { status: 400, message: "Jewellery product name is required." };
         }
 
-        const data = dataStore.getData();
-        const maxId = (data.jewellery || []).reduce((max, i) => Math.max(max, Number(i.id) || 0), 0);
-        const newId = maxId + 1;
+        const category = String(itemData.category || "").trim() || null;
+        const description = String(itemData.description || "").trim();
+        const image = String(itemData.image || itemData.photos?.[0] || "").trim();
+        const photos = Array.isArray(itemData.photos) ? itemData.photos : (itemData.image ? [itemData.image] : []);
+        const weight = itemData.weight || "";
+        const purity = itemData.purity || "22K";
+        const price = Number(itemData.price) || 0;
+        const synonyms = Array.isArray(itemData.synonyms) ? itemData.synonyms : [];
+        const createdAt = new Date().toISOString();
+
+        const pool = getPool();
+        
+        const res = await pool.query(
+            `INSERT INTO jewellery (name, category, description, image, photos, weight, purity, price, synonyms, created_at)
+             VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9::jsonb, $10) RETURNING id`,
+            [name, category, description, image, JSON.stringify(photos), weight, purity, price, JSON.stringify(synonyms), createdAt]
+        );
+
+        const newId = res.rows[0].id;
 
         const newItem = {
             id: newId,
             name,
-            category: String(itemData.category || "").trim(),
-            description: String(itemData.description || "").trim(),
-            image: String(itemData.image || itemData.photos?.[0] || "").trim(),
-            photos: Array.isArray(itemData.photos) ? itemData.photos : (itemData.image ? [itemData.image] : []),
-            weight: itemData.weight || "",
-            purity: itemData.purity || "22K",
-            price: Number(itemData.price) || 0,
-            synonyms: Array.isArray(itemData.synonyms) ? itemData.synonyms : [],
-            createdAt: new Date().toISOString()
+            category,
+            description,
+            image,
+            photos,
+            weight,
+            purity,
+            price,
+            synonyms,
+            createdAt
         };
-
-        dataStore.updateData(current => ({
-            ...current,
-            jewellery: [newItem, ...(current.jewellery || [])]
-        }));
 
         return {
             success: true,
@@ -92,60 +121,63 @@ class JewelleryService {
         };
     }
 
-    update(id, updates) {
-        const data = dataStore.getData();
-        const index = (data.jewellery || []).findIndex(i => String(i.id) === String(id));
-
-        if (index === -1) {
+    async update(id, updates) {
+        const pool = getPool();
+        
+        const existing = await pool.query(`SELECT * FROM jewellery WHERE id = $1`, [id]);
+        if (existing.rows.length === 0) {
             throw { status: 404, message: `Jewellery item with ID "${id}" not found.` };
         }
 
-        const currentItem = { ...data.jewellery[index] };
-        if (updates.name !== undefined) currentItem.name = String(updates.name).trim();
-        if (updates.category !== undefined) currentItem.category = String(updates.category).trim();
-        if (updates.description !== undefined) currentItem.description = String(updates.description).trim();
-        if (updates.weight !== undefined) currentItem.weight = updates.weight;
-        if (updates.purity !== undefined) currentItem.purity = updates.purity;
-        if (updates.price !== undefined) currentItem.price = Number(updates.price) || 0;
+        const currentItem = existing.rows[0];
+        
+        const name = updates.name !== undefined ? String(updates.name).trim() : currentItem.name;
+        const category = updates.category !== undefined ? (String(updates.category).trim() || null) : currentItem.category;
+        const description = updates.description !== undefined ? String(updates.description).trim() : currentItem.description;
+        const weight = updates.weight !== undefined ? updates.weight : currentItem.weight;
+        const purity = updates.purity !== undefined ? updates.purity : currentItem.purity;
+        const price = updates.price !== undefined ? (Number(updates.price) || 0) : currentItem.price;
+        
+        let photos = currentItem.photos;
+        let image = currentItem.image;
+        
         if (updates.photos !== undefined && Array.isArray(updates.photos)) {
-            currentItem.photos = updates.photos;
-            if (updates.photos.length > 0) currentItem.image = updates.photos[0];
+            photos = updates.photos;
+            if (updates.photos.length > 0) image = updates.photos[0];
         } else if (updates.image !== undefined) {
-            currentItem.image = updates.image;
+            image = updates.image;
         }
-        if (updates.synonyms !== undefined && Array.isArray(updates.synonyms)) {
-            currentItem.synonyms = updates.synonyms;
-        }
+        
+        const synonyms = updates.synonyms !== undefined && Array.isArray(updates.synonyms) ? updates.synonyms : currentItem.synonyms;
 
-        dataStore.updateData(current => {
-            const copy = [...(current.jewellery || [])];
-            copy[index] = currentItem;
-            return { ...current, jewellery: copy };
-        });
+        const res = await pool.query(
+            `UPDATE jewellery SET name = $1, category = $2, description = $3, image = $4, photos = $5::jsonb, 
+             weight = $6, purity = $7, price = $8, synonyms = $9::jsonb
+             WHERE id = $10 
+             RETURNING id, name, category, description, image, photos, weight, purity, price, synonyms, created_at as "createdAt"`,
+            [name, category, description, image, JSON.stringify(photos), weight, purity, price, JSON.stringify(synonyms), id]
+        );
 
         return {
             success: true,
             message: "Jewellery item updated successfully.",
-            jewellery: currentItem
+            jewellery: res.rows[0]
         };
     }
 
-    delete(id) {
-        const data = dataStore.getData();
-        const itemToDelete = (data.jewellery || []).find(i => String(i.id) === String(id));
-
-        if (!itemToDelete) {
+    async delete(id) {
+        const pool = getPool();
+        const existing = await pool.query(`SELECT image, photos FROM jewellery WHERE id = $1`, [id]);
+        
+        if (existing.rows.length === 0) {
             throw { status: 404, message: `Jewellery item with ID "${id}" not found.` };
         }
 
-        const filtered = (data.jewellery || []).filter(i => String(i.id) !== String(id));
+        const itemToDelete = existing.rows[0];
 
-        dataStore.updateData(current => ({
-            ...current,
-            jewellery: filtered
-        }));
+        await pool.query(`DELETE FROM jewellery WHERE id = $1`, [id]);
 
-        // Clean up orphaned image file from disk to save disk space and bandwidth
+        // Keep local disk image cleanup logic just in case
         try {
             const fs = require("fs");
             const path = require("path");
