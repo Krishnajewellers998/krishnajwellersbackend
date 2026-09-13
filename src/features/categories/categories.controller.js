@@ -3,7 +3,8 @@ const categoriesService = require("./categories.service");
 class CategoriesController {
     getAll(req, res, next) {
         try {
-            const result = categoriesService.getCategories();
+            const { page, limit } = req.query;
+            const result = categoriesService.getCategories({ page, limit });
             res.json(result);
         } catch (err) {
             next(err);

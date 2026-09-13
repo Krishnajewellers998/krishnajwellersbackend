@@ -1,7 +1,7 @@
 const dataStore = require("../../database/dataStore");
 
 class CategoriesService {
-    getCategories() {
+    getCategories({ page = 1, limit = 100 } = {}) {
         const data = dataStore.getData();
         const categories = (data.categories || []).map(cat => {
             if (typeof cat === "string") {
@@ -13,9 +13,19 @@ class CategoriesService {
                 synonyms: Array.isArray(cat.synonyms) ? cat.synonyms : []
             };
         });
+
+        const total = categories.length;
+        const pageNum = Math.max(1, Number(page) || 1);
+        const limitNum = Math.max(1, Number(limit) || 100);
+        const startIndex = (pageNum - 1) * limitNum;
+        const paginated = categories.slice(startIndex, startIndex + limitNum);
+
         return {
             success: true,
-            categories
+            total,
+            page: pageNum,
+            totalPages: Math.ceil(total / limitNum) || 1,
+            categories: paginated
         };
     }
 
