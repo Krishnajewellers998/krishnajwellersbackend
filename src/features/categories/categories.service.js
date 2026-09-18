@@ -31,13 +31,14 @@ class CategoriesService {
     }
 
     async addCategory({ name, image = "", synonyms = [] }) {
+        // `image` must be a Cloudinary URL string (client uploads via /api/cloudinary-sign)
         const trimmed = String(name || "").trim();
         if (!trimmed) {
             throw { status: 400, message: "Category name is required." };
         }
 
         const pool = getPool();
-        
+
         const existing = await pool.query(`SELECT name FROM categories WHERE LOWER(name) = LOWER($1)`, [trimmed]);
         if (existing.rows.length > 0) {
             throw { status: 409, message: `Category "${trimmed}" already exists.` };
@@ -105,32 +106,13 @@ class CategoriesService {
         const trimmed = String(name || "").trim();
         const pool = getPool();
 
-        const existing = await pool.query(`SELECT image FROM categories WHERE LOWER(name) = LOWER($1)`, [trimmed]);
+        const existing = await pool.query(`SELECT name FROM categories WHERE LOWER(name) = LOWER($1)`, [trimmed]);
         if (existing.rows.length === 0) {
             throw { status: 404, message: `Category "${trimmed}" not found.` };
         }
 
-        const catToDelete = existing.rows[0];
-
         await pool.query(`DELETE FROM categories WHERE LOWER(name) = LOWER($1)`, [trimmed]);
-
-        // Note: we let images table handle their own cleanup or we can just ignore orphaned files
-        // as they are stored in the database now, but keeping the cleanup logic for disk files just in case.
-        try {
-            const fs = require("fs");
-            const path = require("path");
-            const config = require("../../config/env");
-
-            const imgPath = catToDelete.image;
-            if (imgPath && imgPath.startsWith("images/")) {
-                const fullPath = path.resolve(config.IMAGES_DIR, path.basename(imgPath));
-                if (fs.existsSync(fullPath)) {
-                    fs.unlinkSync(fullPath);
-                }
-            }
-        } catch (cleanupErr) {
-            console.error("[CategoriesService] Could not remove deleted category image file:", cleanupErr.message);
-        }
+        // Cloudinary assets are not deleted here — manage them in the Cloudinary dashboard if needed.
 
         return {
             success: true,

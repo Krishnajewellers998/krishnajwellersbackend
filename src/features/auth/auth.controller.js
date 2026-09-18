@@ -1,16 +1,17 @@
 const authService = require("./auth.service");
-const { setAdminCookie, clearAdminCookie, parseCookies, SESSION_COOKIE, isSessionValid } = require("../../middleware/auth.middleware");
+const { extractBearerToken, verifyAdminToken } = require("../../middleware/auth.middleware");
 
 class AuthController {
     login(req, res, next) {
         try {
             const { username, password } = req.body;
             const token = authService.login(username, password);
-            setAdminCookie(res, token);
             res.json({
                 success: true,
                 message: "Admin login successful.",
-                token
+                token,
+                // Client must send: Authorization: Bearer <token>
+                expiresIn: "7d"
             });
         } catch (err) {
             next(err);
@@ -19,12 +20,10 @@ class AuthController {
 
     logout(req, res, next) {
         try {
-            const token = parseCookies(req)[SESSION_COOKIE] || req.headers["x-admin-token"];
-            if (token) authService.logout(token);
-            clearAdminCookie(res);
+            authService.logout();
             res.json({
                 success: true,
-                message: "Logged out successfully."
+                message: "Logged out successfully. Discard the JWT on the client."
             });
         } catch (err) {
             next(err);
@@ -32,11 +31,12 @@ class AuthController {
     }
 
     checkAuth(req, res) {
-        const token = parseCookies(req)[SESSION_COOKIE] || req.headers["x-admin-token"] || (req.headers.authorization?.startsWith("Bearer ") ? req.headers.authorization.slice(7) : null);
-        const authenticated = isSessionValid(token);
+        const token = extractBearerToken(req);
+        const decoded = verifyAdminToken(token);
         res.json({
             success: true,
-            authenticated
+            authenticated: Boolean(decoded),
+            admin: decoded ? { id: decoded.id, role: decoded.role } : null
         });
     }
 }

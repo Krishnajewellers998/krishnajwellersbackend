@@ -1,7 +1,7 @@
 const path = require("path");
 const fs = require("fs");
 
-// Load local .env if present
+// Load local .env if present (local dev only; Vercel injects env vars directly)
 (function loadLocalEnv() {
     try {
         const envPath = path.resolve(__dirname, "../../.env");
@@ -27,11 +27,11 @@ module.exports = {
     PORT: Number(process.env.PORT) || 5000,
     NODE_ENV: process.env.NODE_ENV || "development",
     ADMIN_USERNAME: process.env.ADMIN_USERNAME || "krishnaadmin",
-    ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || "KJ!Admin#2026-Gold",
-    ADMIN_SESSION_SECRET: process.env.ADMIN_SESSION_SECRET || "kj_secret_key_2026_super_secure",
+    ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || "",
+    JWT_SECRET: process.env.JWT_SECRET || "",
+    JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || "7d",
     DATABASE_URL: process.env.DATABASE_URL || "",
-    DATA_FILE: path.resolve(__dirname, "../../data.json"),
-    IMAGES_DIR: path.resolve(__dirname, "../../images"),
-    WEB_DIST_DIR: path.resolve(__dirname, "../../../website/dist"),
-    PANKAJ_LIVE_URL: "https://bcast.pankajchain.com:7768/VOTSBroadcastStreaming/Services/xml/GetLiveRateByTemplateID/pankajchain"
+    CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME || "",
+    CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY || "",
+    CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET || ""
 };

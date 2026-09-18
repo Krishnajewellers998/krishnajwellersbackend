@@ -1,5 +1,5 @@
 const config = require("../../config/env");
-const { safeEqual, createSession, destroySession } = require("../../middleware/auth.middleware");
+const { safeEqual, signAdminToken } = require("../../middleware/auth.middleware");
 
 class AuthService {
     login(username, password) {
@@ -14,12 +14,12 @@ class AuthService {
             throw { status: 401, message: "Invalid Admin ID or Password." };
         }
 
-        const token = createSession();
-        return token;
+        return signAdminToken({ id: config.ADMIN_USERNAME, role: "admin" });
     }
 
-    logout(token) {
-        destroySession(token);
+    // JWT is stateless — logout is handled client-side by discarding the token.
+    logout() {
+        return true;
     }
 }
 

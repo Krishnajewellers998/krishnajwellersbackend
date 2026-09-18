@@ -4,12 +4,10 @@ const goldRatesRoutes = require("../features/gold-rates/gold-rates.routes");
 const categoriesRoutes = require("../features/categories/categories.routes");
 const jewelleryRoutes = require("../features/jewellery/jewellery.routes");
 const uploadsRoutes = require("../features/uploads/uploads.routes");
-const imagesRoutes = require("../features/uploads/images.routes");
 const jewelleryService = require("../features/jewellery/jewellery.service");
 
 const router = express.Router();
 
-// Health Check
 router.get("/health", (req, res) => {
     res.json({
         status: "ok",
@@ -19,7 +17,6 @@ router.get("/health", (req, res) => {
     });
 });
 
-// Search alias
 router.get("/search", async (req, res, next) => {
     try {
         const { q, category } = req.query;
@@ -30,14 +27,12 @@ router.get("/search", async (req, res, next) => {
     }
 });
 
-// Feature routers
 router.use("/auth", authRoutes);
-router.use("/admin", authRoutes); // Backwards compatibility for /api/admin/login etc.
+router.use("/admin", authRoutes);
 router.use("/gold-rates", goldRatesRoutes);
-router.use("/rates", goldRatesRoutes); // Alias
+router.use("/rates", goldRatesRoutes);
 router.use("/categories", categoriesRoutes);
 router.use("/jewellery", jewelleryRoutes);
-router.use("/images", imagesRoutes);
-router.use("/", uploadsRoutes); // /api/upload-image
+router.use("/", uploadsRoutes); // POST /api/cloudinary-sign
 
 module.exports = router;

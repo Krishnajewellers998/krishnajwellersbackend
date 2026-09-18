@@ -80,6 +80,7 @@ class JewelleryService {
             throw { status: 400, message: "Jewellery product name is required." };
         }
 
+        // image / photos must be Cloudinary URL strings (client uploads via /api/cloudinary-sign)
         const category = String(itemData.category || "").trim() || null;
         const description = String(itemData.description || "").trim();
         const image = String(itemData.image || itemData.photos?.[0] || "").trim();
@@ -167,37 +168,14 @@ class JewelleryService {
 
     async delete(id) {
         const pool = getPool();
-        const existing = await pool.query(`SELECT image, photos FROM jewellery WHERE id = $1`, [id]);
-        
+        const existing = await pool.query(`SELECT id FROM jewellery WHERE id = $1`, [id]);
+
         if (existing.rows.length === 0) {
             throw { status: 404, message: `Jewellery item with ID "${id}" not found.` };
         }
 
-        const itemToDelete = existing.rows[0];
-
         await pool.query(`DELETE FROM jewellery WHERE id = $1`, [id]);
-
-        // Keep local disk image cleanup logic just in case
-        try {
-            const fs = require("fs");
-            const path = require("path");
-            const config = require("../../config/env");
-
-            const imagesToDelete = [];
-            if (itemToDelete.image) imagesToDelete.push(itemToDelete.image);
-            if (Array.isArray(itemToDelete.photos)) imagesToDelete.push(...itemToDelete.photos);
-
-            for (const imgPath of imagesToDelete) {
-                if (imgPath && imgPath.startsWith("images/")) {
-                    const fullPath = path.resolve(config.IMAGES_DIR, path.basename(imgPath));
-                    if (fs.existsSync(fullPath)) {
-                        fs.unlinkSync(fullPath);
-                    }
-                }
-            }
-        } catch (cleanupErr) {
-            console.error("[JewelleryService] Could not remove deleted image file:", cleanupErr.message);
-        }
+        // Cloudinary assets are not deleted here — manage them in the Cloudinary dashboard if needed.
 
         return {
             success: true,
