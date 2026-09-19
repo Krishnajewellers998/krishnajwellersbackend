@@ -72,27 +72,19 @@ class CategoriesService {
         const newImage = image !== undefined ? String(image).trim() : currentCat.image;
         const newSynonyms = synonyms !== undefined && Array.isArray(synonyms) ? synonyms : (currentCat.synonyms || []);
 
-        await pool.query('BEGIN');
-        try {
-            if (newName.toLowerCase() !== trimmedOld.toLowerCase()) {
-                // Name changed, we need to insert the new one, update jewellery, and delete old one
-                // Since `name` is the primary key, we have to handle the rename carefully.
-                // Using an UPDATE statement on the primary key might violate foreign key constraints
-                // if we don't CASCADE, but our table is set to ON UPDATE CASCADE ON DELETE SET NULL.
-                await pool.query(
-                    `UPDATE categories SET name = $1, image = $2, synonyms = $3::jsonb WHERE LOWER(name) = LOWER($4)`,
-                    [newName, newImage, JSON.stringify(newSynonyms), trimmedOld]
-                );
-            } else {
-                await pool.query(
-                    `UPDATE categories SET image = $1, synonyms = $2::jsonb WHERE LOWER(name) = LOWER($3)`,
-                    [newImage, JSON.stringify(newSynonyms), trimmedOld]
-                );
-            }
-            await pool.query('COMMIT');
-        } catch (err) {
-            await pool.query('ROLLBACK');
-            throw err;
+        // Single-statement update (FK ON UPDATE CASCADE handles jewellery rename).
+        // Do not wrap in BEGIN/COMMIT — Neon HTTP uses one-shot queries per call;
+        // interactive sessions are not available on this driver path.
+        if (newName.toLowerCase() !== trimmedOld.toLowerCase()) {
+            await pool.query(
+                `UPDATE categories SET name = $1, image = $2, synonyms = $3::jsonb WHERE LOWER(name) = LOWER($4)`,
+                [newName, newImage, JSON.stringify(newSynonyms), trimmedOld]
+            );
+        } else {
+            await pool.query(
+                `UPDATE categories SET image = $1, synonyms = $2::jsonb WHERE LOWER(name) = LOWER($3)`,
+                [newImage, JSON.stringify(newSynonyms), trimmedOld]
+            );
         }
 
         return {

@@ -1,28 +1,53 @@
-const { Pool, neonConfig } = require("@neondatabase/serverless");
-const ws = require("ws");
+const { neon } = require("@neondatabase/serverless");
 const config = require("../config/env");
 
-// Neon WebSocket driver — required for Pool in Node.js / Vercel serverless
-neonConfig.webSocketConstructor = ws;
+/**
+ * Neon HTTP driver (not WebSocket Pool).
+ *
+ * Why HTTP on Vercel:
+ * - WebSocket Pool reused across invocations is a known hang risk when the
+ *   isolate freezes/resumes with a dead socket.
+ * - Vercel "outgoing requests" logging tracks HTTP fetch; WebSocket DB traffic
+ *   often shows as "No outgoing requests" while the query hangs forever.
+ * - HTTP queries get an explicit fetch AbortSignal timeout so they fail fast
+ *   instead of waiting until FUNCTION_INVOCATION_TIMEOUT (300s).
+ */
 
-let pool = null;
+const QUERY_TIMEOUT_MS = 10_000;
 
-function getPool() {
+let sql = null;
+
+function getSql() {
     if (!config.DATABASE_URL) {
         throw new Error("DATABASE_URL is not set. Configure a Neon connection string.");
     }
 
-    if (!pool) {
-        // Low max connections — each serverless invocation should stay light
-        pool = new Pool({
-            connectionString: config.DATABASE_URL,
-            max: 1
-        });
+    if (!sql) {
+        // fullResults → { rows, rowCount, ... } matching node-postgres / Pool.query shape
+        sql = neon(config.DATABASE_URL, { fullResults: true });
     }
 
-    return pool;
+    return sql;
+}
+
+/**
+ * Drop-in replacement for the old `getPool()` so existing `pool.query(text, params)`
+ * call sites keep working, backed by Neon HTTP instead of a WebSocket Pool.
+ */
+function getPool() {
+    const client = getSql();
+    return {
+        query(text, params = []) {
+            return client.query(text, params, {
+                fetchOptions: {
+                    signal: AbortSignal.timeout(QUERY_TIMEOUT_MS)
+                }
+            });
+        }
+    };
 }
 
 module.exports = {
-    getPool
+    getPool,
+    getSql
 };
