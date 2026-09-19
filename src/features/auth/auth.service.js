@@ -7,8 +7,21 @@ class AuthService {
             throw { status: 503, message: "Admin authentication is not configured on the server." };
         }
 
-        const isUserMatch = safeEqual(String(username || "").trim(), config.ADMIN_USERNAME);
-        const isPassMatch = safeEqual(String(password || ""), config.ADMIN_PASSWORD);
+        const submittedUser = String(username || "").trim();
+        const submittedPass = String(password || "");
+
+        // TEMP debug — lengths only, never values. Remove after login diagnosis.
+        console.log("[auth-debug] login attempt lengths", {
+            envUsernameLen: process.env.ADMIN_USERNAME == null ? null : String(process.env.ADMIN_USERNAME).length,
+            envPasswordLen: process.env.ADMIN_PASSWORD == null ? null : String(process.env.ADMIN_PASSWORD).length,
+            configUsernameLen: String(config.ADMIN_USERNAME || "").length,
+            configPasswordLen: String(config.ADMIN_PASSWORD || "").length,
+            submittedUsernameLen: submittedUser.length,
+            submittedPasswordLen: submittedPass.length
+        });
+
+        const isUserMatch = safeEqual(submittedUser, config.ADMIN_USERNAME);
+        const isPassMatch = safeEqual(submittedPass, config.ADMIN_PASSWORD);
 
         if (!isUserMatch || !isPassMatch) {
             throw { status: 401, message: "Invalid Admin ID or Password." };
