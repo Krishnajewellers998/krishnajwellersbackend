@@ -1,7 +1,26 @@
 const { getPool } = require("../../database/dataStore");
 
+// Matches jewellery fields OR matching categories against the ILIKE pattern in $param
+function searchCondition(param) {
+    return `(
+                j.name ILIKE $${param} OR
+                j.description ILIKE $${param} OR
+                j.category ILIKE $${param} OR
+                j.synonyms::text ILIKE $${param} OR
+                EXISTS (
+                    SELECT 1 FROM categories c
+                    WHERE c.name = j.category
+                    AND (c.name ILIKE $${param} OR c.synonyms::text ILIKE $${param})
+                )
+            )`;
+}
+
 class JewelleryService {
-    async getJewellery({ category = "", search = "", page = 1, limit = 100 } = {}) {
+    /**
+     * excludeCategory / excludeSearch return everything OUTSIDE a category or search —
+     * the website's "similar products" feed once the shopper reaches the end of their results.
+     */
+    async getJewellery({ category = "", search = "", excludeCategory = "", excludeSearch = "", page = 1, limit = 100 } = {}) {
         const pool = getPool();
         const pageNum = Math.max(1, Number(page) || 1);
         const limitNum = Math.max(1, Number(limit) || 100);
@@ -19,19 +38,24 @@ class JewelleryService {
 
         if (search) {
             const q = `%${search.trim()}%`;
-            // Search in jewellery fields OR matching categories
-            conditions.push(`(
-                j.name ILIKE $${paramIndex} OR 
-                j.description ILIKE $${paramIndex} OR 
-                j.category ILIKE $${paramIndex} OR 
-                j.synonyms::text ILIKE $${paramIndex} OR
-                EXISTS (
-                    SELECT 1 FROM categories c 
-                    WHERE c.name = j.category 
-                    AND (c.name ILIKE $${paramIndex} OR c.synonyms::text ILIKE $${paramIndex})
-                )
-            )`);
+            conditions.push(searchCondition(paramIndex));
             queryArgs.push(q);
+            paramIndex++;
+        }
+
+        const excludedCategory = String(excludeCategory || "").trim();
+        if (excludedCategory) {
+            // Uncategorised items count as "outside" too
+            conditions.push(`(j.category IS NULL OR LOWER(j.category) <> LOWER($${paramIndex}))`);
+            queryArgs.push(excludedCategory);
+            paramIndex++;
+        }
+
+        const excludedSearch = String(excludeSearch || "").trim();
+        if (excludedSearch) {
+            // COALESCE: a NULL description must not turn the whole NOT(...) into NULL and hide the row
+            conditions.push(`NOT COALESCE(${searchCondition(paramIndex)}, false)`);
+            queryArgs.push(`%${excludedSearch}%`);
             paramIndex++;
         }
 

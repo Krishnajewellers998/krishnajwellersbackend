@@ -3,8 +3,8 @@ const jewelleryService = require("./jewellery.service");
 class JewelleryController {
     async getAll(req, res, next) {
         try {
-            const { category, search, page, limit } = req.query;
-            const result = await jewelleryService.getJewellery({ category, search, page, limit });
+            const { category, search, excludeCategory, excludeSearch, page, limit } = req.query;
+            const result = await jewelleryService.getJewellery({ category, search, excludeCategory, excludeSearch, page, limit });
             res.json(result);
         } catch (err) {
             next(err);
